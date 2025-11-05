@@ -1,36 +1,39 @@
-chrome.runtime.onMessage.addListener(async (msg, sender) => {
-  if (!msg || !msg.type) return;
+const stopWords = ['na', 'on', 'at', 'for', 'about', 'from', 'in', 'to', 'of', 'the'];
 
-  if (msg.type === 'OPEN_URL') {
-    const url = msg.url;
-    if (!url) return;
+chrome.omnibox.onInputEntered.addListener((text) => {
+  handleSmartSearch(text);
+});
 
-    // Ako je tab validan i http/https
-    if (sender && sender.tab && sender.tab.id && sender.tab.url.startsWith('http')) {
-      try {
-        await chrome.scripting.executeScript({
-          target: { tabId: sender.tab.id },
-          func: (url) => { window.location.href = url; },
-          args: [url]
-        });
-      } catch (err) {
-        console.error('Error redirecting tab:', err);
-      }
-    } else {
-      chrome.tabs.create({ url });
+chrome.runtime.onMessage.addListener((message) => {
+  if (message.type === "toggleSearch") {
+    chrome.storage.local.set({ searchEnabled: message.enabled });
+  }
+});
+
+function handleSmartSearch(rawInput) {
+  chrome.storage.local.get("searchEnabled", (data) => {
+    if (!rawInput || rawInput.trim() === "") return;
+
+    const query = rawInput.trim().toLowerCase();
+
+    // 🔹 Ako je ekstenzija ugašena → koristi Bing kao podrazumevani search
+    if (data.searchEnabled === false) {
+      chrome.tabs.update({
+        url: "https://www.bing.com/search?q=" + encodeURIComponent(query)
+      });
+      return;
     }
-  }
-});
 
-// Shortcut Alt+S — toggluje overlay
-chrome.commands.onCommand.addListener(async (command) => {
-  if (command !== 'toggle-overlay') return;
+    // 🔹 Ako je uključena, koristi tvoj pametni sistem
+    const words = query.split(/\s+/);
+    let filtered = words.filter(w => !stopWords.includes(w));
 
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  if (!tab || !tab.id || !tab.url || !tab.url.startsWith('http')) {
-    console.warn('Overlay cannot be injected in this tab:', tab?.url);
-    return;
-  }
+    if (filtered.length === 0) filtered = words;
 
-  chrome.tabs.sendMessage(tab.id, { type: 'TOGGLE_OVERLAY' });
-});
+    // zameni razmake crticama (ferrari gume → ferrari-gume)
+    const cleanQuery = filtered.join("-");
+
+    const targetUrl = `https://net.billionaire.life/${encodeURIComponent(cleanQuery)}`;
+    chrome.tabs.update({ url: targetUrl });
+  });
+}
