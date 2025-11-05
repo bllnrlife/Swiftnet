@@ -1,0 +1,33 @@
+{
+  "manifest_version": 3,
+  "name": "Billionaire Spotlight Search",
+  "version": "1.0",
+  "description": "Press shortcut to open a transparent search bar and search via net.billionaire.life",
+  "permissions": ["storage", "tabs", "scripting", "activeTab"],
+  "host_permissions": ["<all_urls>"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "commands": {
+    "toggle-overlay": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+S",
+        "mac": "Command+Shift+S"
+      },
+      "description": "Toggle Net Billionaire overlay search"
+    }
+  },
+  "action": {
+    "default_title": "Net Billionaire Overlay Search"
+  },
+  "icons": {
+    "48": "icon48.png"
+  }
+}
